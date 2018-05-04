@@ -44,6 +44,7 @@ class Events{
     * @param mixed $message 具体消息
     */
     public static function onMessage($client_id, $message) {
+        require_once 'qiyuApi/send.php';
         $msgData = json_decode($message, true);
         /*TODO 
         1.userInfo(get userInfo to send request to customer service and send current user; bind uid to client_id; get history in page 1)

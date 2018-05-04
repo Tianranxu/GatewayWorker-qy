@@ -1,10 +1,8 @@
 <?php
 
-/**
-* Helper function
-*/
-class Helper {
+namespace qiyu\helper;
 
+class Helper {
     public static function http_get($url){
         $oCurl = curl_init ();
         if (stripos ( $url, "https://" ) !== FALSE) {
@@ -34,7 +32,7 @@ class Helper {
         curl_setopt ( $oCurl, CURLOPT_RETURNTRANSFER, 1 );
         curl_setopt ( $oCurl, CURLOPT_TIMEOUT, 15 );
         curl_setopt ( $oCurl, CURLOPT_POST, true );
-        curl_setopt ( $oCurl, CURLOPT_POSTFIELDS, json_encode($parameter) );
+        curl_setopt ( $oCurl, CURLOPT_POSTFIELDS, $parameter );
         $sContent = curl_exec ( $oCurl );
         $aStatus = curl_getinfo ( $oCurl );
         curl_close ( $oCurl );
@@ -45,10 +43,8 @@ class Helper {
         }
     }
 
-    public static function pconnect_redis($redisConfig){
-        $redis = new Redis();
-        $redis->pconnect($redisConfig['host'], $redisConfig['port']);
-        $redis->auth($redisConfig['authKey']);
-        return $redis;
+    public static function getChecksum($appsecrect, $json_data, $time){
+        return sha1($appsecrect . strtolower(md5($json_data)) . $time);
     }
+
 }
