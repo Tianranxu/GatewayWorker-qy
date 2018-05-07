@@ -4,16 +4,21 @@
 * Helper class for redis
 */
 class RedisHelper {
-    public static function connect_redis($redisConfig, $type = 'pconnect'){
+    protected $redisConfig;
+    public function __construct(){
+        $this->redisConfig = require(__DIR__.'/redis_config.php');
+    }
+
+    public function connect_redis($type = 'pconnect'){
         $redis = new Redis();
         ($type == 'connect') 
-            ? $redis->pconnect($redisConfig['host'], $redisConfig['port'])
-            : $redis->connect($redisConfig['host'], $redisConfig['port']);
-        $redis->auth($redisConfig['authKey']);
+            ? $redis->pconnect($this->redisConfig['host'], $this->redisConfig['port'])
+            : $redis->connect($this->redisConfig['host'], $this->redisConfig['port']);
+        $redis->auth($this->redisConfig['authKey']);
         return $redis;
     }
 
-    public static function close_redis($redis){
+    public function close_redis($redis){
         return $redis->close();
     }
 }
