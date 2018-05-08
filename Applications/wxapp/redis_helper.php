@@ -6,7 +6,7 @@
 class RedisHelper {
     protected $redisConfig;
     public function __construct(){
-        $this->redisConfig = require(__DIR__.'/redis_config.php');
+        $this->redisConfig = require(__DIR__.'/db_config.php')['redis'];
     }
 
     public function connect_redis($type = 'pconnect'){

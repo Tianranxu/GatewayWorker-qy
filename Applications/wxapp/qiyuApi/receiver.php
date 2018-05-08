@@ -49,8 +49,8 @@ class Receiver {
                 ]
             ]
         ];
-        Gateway::sendToUid($post_data['uid'], $chatContent);
-        $this->addStaffChatRecord($redis, $post_data);
+        Gateway::sendToUid($post_data['uid'], json_encode($chatContent));
+        $this->addStaffChatRecord($redis, $post_data, $staff[1]);
         
         $redis_helper->close_redis($redis);
         echo '';
@@ -76,16 +76,17 @@ class Receiver {
         echo '';
     }
 
-    public function addStaffChatRecord($redis, $post_data){
+    public function addStaffChatRecord($redis, $post_data, $avatar){
         $record = [
             'isMe' => 'not',
             'staffId' => $post_data['staffId'],
             'msgType' => $post_data['msgType'],
-            'content' => $post_data['content']
+            'content' => $post_data['content'],
+            'staff_avatar' => $avatar
         ];
-        $redis->lPush('chatRecord', implode('`', $record));
+        $redis->lPush('chatRecord:'.$post_data['uid'], implode('`', $record));
         //仅保留最新的30条数据
-        $redis->lTrim('chatRecord', 0, 29);
+        $redis->lTrim('chatRecord:'.$post_data['uid'], 0, 29);
         return ;
     }
 

@@ -13,6 +13,7 @@
  */
 
 require_once __DIR__.'/redis_helper.php';
+require_once './qiyuApi/sender.php';
 
 /**
  * 用于检测业务代码死循环或者长时间阻塞等问题
@@ -31,7 +32,14 @@ use \GatewayWorker\Lib\Gateway;
 class Events{
     public static $db = null;
 
-    public static $redis = null;
+    /**
+     * worker启动时触发
+     */
+    public static function onWorkerStart($businessWorker){
+        $dbConfig = require('./db_config')['mysql'];
+        self::$db = new Workerman\MySQL\Connection($dbConfig['host'], $dbConfig['port'], $dbConfig['user'], $dbConfig['password'], $dbConfig['db_name']);
+    }
+
     /**
     * 当客户端连接时触发
     * 如果业务不需此回调可以删除onConnect
@@ -40,7 +48,7 @@ class Events{
     */
     public static function onConnect($client_id) {
         // 向当前client_id发送数据 
-        //Gateway::sendToClient($client_id, "Hello $client_id\n");
+        Gateway::sendToClient($client_id, "Hello $client_id\n");
     }
 
     /**
@@ -49,7 +57,6 @@ class Events{
     * @param mixed $message 具体消息
     */
     public static function onMessage($client_id, $message) {
-        require_once './qiyuApi/send.php';
         $msgData = json_decode($message, true);
         $redis_helper = new RedisHelper();
         $redis = $redis_helper->connect_redis('pconnect');
@@ -58,39 +65,79 @@ class Events{
             Gateway::closeClient($client_id);
             return false;
         }
-        $userInfo = $redis->hGet('loginUser', $msgData['token']);
-        if (empty($userInfo)) {
+        $userLoginInfo = explode('`', $redis->hGet('loginUser', $msgData['token']));
+        if (empty($userLoginInfo)) {
             Gateway::closeClient($client_id);
             return false;
         }
+        $userLoginInfo['client_id'] = $client_id;
         //update token's timestamp
         $redis->zAdd('recentUser', $msgData['token'], time());
 
-        $function = new ReflectionMethod(get_called_class(), 'event'.ucwords($msgData['type']));
-        $function->invoke($this, $msgData, $userInfo, $redis);
+        $functionName = 'event'.ucwords($msgData['type']);
+        self::$functionName($msgData, $userLoginInfo, $redis);
 
         /*TODO 
-        1.userInfo(get userInfo to send request to customer service and send current user; bind uid to client_id;add session_staff; get history in page 1)
+        1.userInfo(bind uid to client_id; get userInfo to send current user(with history in page 1) send request to customer service; add client_staff;)
         2.history(page) 
         3.hearbeat 
-        4.say(send request to qiyu and save in db)(contentType:text,img)*/
+        4.say(send request to qiyu and save in redis)(contentType:text,img)
+        5.user behavior
+        */
     }
 
-    public function eventUserInfo($msgData, $userInfo, $redis){
+    public static function eventUserInfo($msgData, $userLoginInfo, $redis){
+        //bind uid to client_id
+        $clientIds = Gateway::getClientIdByUid($userLoginInfo[0]);
+        if (!empty($clientIds)) {
+            foreach ($clientIds as $clientId) {
+                Gateway::closeClient($clientId);
+            }
+        }
+        Gateway::bindUid($userLoginInfo['client_id'], $userLoginInfo[0]);
 
+        //get userInfo
+        $user = self::$db->select('uid,user_type,avatarUrl')->from('users')->where('uid= :uid')->bindValues(array('uid'=>$userLoginInfo[0]))->query();
+        
+        //send userInfo to user(with chat record if there is)
+        $userInfo = [
+            'type' => 'userInfo',
+            'user' => $user,
+            'record' => self::getRecordByPage($userLoginInfo[0], 1, $msgData['limit'], $redis)
+        ];
+        Gateway::sendToClient($userLoginInfo['client_id'], json_encode($userInfo));
+
+        //
         return ;
     }
 
-    public function eventSay($msgData, $userInfo, $redis){
+    public static function eventSay($msgData, $userLoginInfo, $redis){
         return ;
     }
 
-    public function eventHistory($msgData, $userInfo, $redis){
+    public static function eventHistory($msgData, $userLoginInfo, $redis){
         return ;
     }
 
-    public function eventHeartbeat($msgData, $userInfo, $redis){
+    public static function eventHeartbeat($msgData, $userLoginInfo, $redis){
         return ;
+    }
+
+    public static function getRecordByPage($uid, $page, $limit, $redis){
+        $chats = $redis->lRange('chatRecord:'.$uid, $limit*($page-1), $page*$limit-1);
+        if (empty($chats)) {
+            return '';
+        }
+        foreach ($chats as $chat) {
+            $chat_arr = explode('`', $chat);
+            $records[] = [
+                'isMe' => ($chat_arr[0] == 'not') ? false : true,
+                'contentType' => $chat_arr[2],
+                'content' => $chat_arr[3],
+                'avatar' => ($chat_arr[0] == 'not') ? $chat_arr[4] : '',
+            ];
+        }
+        return $records;
     }
 
     /**
@@ -100,11 +147,11 @@ class Events{
     public static function onClose($client_id) {
         $redis_helper = new RedisHelper();
         $redis = $redis_helper->connect_redis('pconnect');
-        $staff = $redis->hGet('session_staff', $client_id);
+        $staff = $redis->hGet('client_staff', $client_id);
         if (empty($staff)) {
             return ;
         }
-        $redis->hDel('session_staff', $client_id);
+        $redis->hDel('client_staff', $client_id);
         //TODO send request to qiyu that user logout
     }
 
