@@ -87,35 +87,77 @@ class Events{
     }
 
     public static function eventUserInfo($msgData, $userLoginInfo, $redis){
+        $uid = $userLoginInfo[0];
         //bind uid to client_id
-        $clientIds = Gateway::getClientIdByUid($userLoginInfo[0]);
+        $clientIds = Gateway::getClientIdByUid($uid);
         if (!empty($clientIds)) {
             foreach ($clientIds as $clientId) {
                 Gateway::closeClient($clientId);
             }
         }
-        Gateway::bindUid($userLoginInfo['client_id'], $userLoginInfo[0]);
+        Gateway::bindUid($userLoginInfo['client_id'], $uid);
 
         //get userInfo
-        $user = self::$db->select('uid,user_type,avatarUrl')->from('users')->where('uid= :uid')->bindValues(array('uid'=>$userLoginInfo[0]))->query();
+        $user = self::$db->select('uid,user_type,avatarUrl')->from('users')->where('uid= :uid')->bindValues(array('uid'=>$uid))->query();
         
         //send userInfo to user(with chat record if there is)
         $userInfo = [
             'type' => 'userInfo',
             'user' => $user,
-            'record' => self::getRecordByPage($userLoginInfo[0], 1, $msgData['limit'], $redis)
+            'record' => self::getRecordByPage($uid, 1, $msgData['limit'], $redis)
         ];
         Gateway::sendToClient($userLoginInfo['client_id'], json_encode($userInfo));
 
-        //
+        //apply staff
+        $sender = new Sender();
+        $msgContent = [
+            'uid' => $uid,
+            'staffType' => 1
+        ];
+        $staffResult = $sender->applyStaff($msgContent);
+        if ($staffResult['code'] == '200') {
+            $redis->hSet('client_staff', $userLoginInfo['client_id'], $staffResult['staffId']); //or robotId
+            $chat = [
+                        'isMe' => false,
+                        'staffId' => $post_data['staffId'],
+                        'contentType' => 'TEXT',
+                        'content' => $staffResult['message'],
+                        'avatar' => $staffResult['staffIcon']
+            ];
+            $chatContent = [
+                'type' => 'say',
+                'msg' => [$chat]
+            ];
+            Gateway::sendToClient($userLoginInfo['client_id'], json_encode($chatContent));
+            self::addChatRecord($redis, $chat, $uid);
+        }
         return ;
     }
 
     public static function eventSay($msgData, $userLoginInfo, $redis){
+        $sender = new sender();
+        $msgContent = [
+            'uid' => $userLoginInfo[0],
+            'msgType' => $msgData['contentType'],
+            'content' => $msgData['content']
+        ];
+        $sender->pushMsg($msgContent);
+        $chat = [
+                    'isMe' => 'is',
+                    'uid' => $userLoginInfo[0],
+                    'contentType' => $msgData['contentType'],
+                    'content' => $msgData['content']
+        ];
+        self::addChatRecord($redis, $chat, $userLoginInfo[0]);
         return ;
     }
 
     public static function eventHistory($msgData, $userLoginInfo, $redis){
+        $history = [
+            'type' => 'history',
+            'record' => self::getRecordByPage($userLoginInfo, $msgData['page'], $msgData['limit'], $redis)
+        ];
+        Gateway::sendToClient($userLoginInfo['client_id'], json_encode($history));
         return ;
     }
 
@@ -138,6 +180,13 @@ class Events{
             ];
         }
         return $records;
+    }
+
+    public static function addChatRecord($redis, $record, $uid){
+        $redis->lPush('chatRecord:'.$uid, implode('`', $record));
+        //仅保留最新的30条数据
+        $redis->lTrim('chatRecord:'.$uid, 0, 29);
+        return ; 
     }
 
     /**

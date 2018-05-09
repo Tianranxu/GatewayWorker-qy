@@ -27,7 +27,7 @@ class Sender {
      */
     public function applyStaff($msgContent){
         $this->getUrl('https://qiyukf.com/openapi/event/applyStaff', $msgContent);
-        return Helper::http_post($url, $msgContent);
+        return Helper::http_post($url, json_encode($msgContent));
     }
 
     /**
@@ -36,7 +36,7 @@ class Sender {
      */  
     public function updateUserInfo($msgContent){
         $this->getUrl('https://qiyukf.com/openapi/event/updateUInfo', $msgContent);
-        return Helper::http_post($url, $msgContent);
+        return Helper::http_post($url, json_encode($msgContent));
     }
 
     /**
@@ -45,7 +45,7 @@ class Sender {
      */
     public function evaluate($msgContent){
         $this->getUrl('https://qiyukf.com/openapi/event/evaluate', $msgContent);
-        return Helper::http_post($url, $msgContent);
+        return Helper::http_post($url, json_encode($msgContent));
     }
 
     /**
@@ -54,16 +54,16 @@ class Sender {
      */
     public function queryQueueStatus($msgContent){
         $this->getUrl('https://qiyukf.com/openapi/event/queryQueueStatu', $msgContent);
-        return Helper::http_post($url, $msgContent);
+        return Helper::http_post($url, json_encode($msgContent));
     }
 
     /**
-     * 查询排队状态
+     * 主动退出排队
      *@param string $msgContent 发送请求的内容(json字符串)
     */
     public function quitQueue($msgContent){
         $this->getUrl('https://qiyukf.com/openapi/event/quitQueue', $msgContent);
-        return Helper::http_post($url, $msgContent);
+        return Helper::http_post($url, json_encode($msgContent));
     }
     
     public function getUrl($frontUrl, $msgContent){
