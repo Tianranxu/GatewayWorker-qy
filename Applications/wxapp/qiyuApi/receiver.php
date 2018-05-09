@@ -1,5 +1,5 @@
 <?php
-require_once 'helper.php';
+require_once __DIR__.'/helper.php';
 require_once '../redis_helper.php';
 require_once '../GatewayClient/Gateway.php';
 

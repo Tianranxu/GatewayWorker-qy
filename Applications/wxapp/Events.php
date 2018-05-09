@@ -12,8 +12,8 @@
  * @license http://www.opensource.org/licenses/mit-license.php MIT License
  */
 
-require_once __DIR__.'/redis_helper.php';
-require_once './qiyuApi/sender.php';
+require_once __DIR__.'/Applications/wxapp/redis_helper.php';
+require_once __DIR__.'/Applications/wxapp/qiyuApi/sender.php';
 
 /**
  * 用于检测业务代码死循环或者长时间阻塞等问题
@@ -36,7 +36,7 @@ class Events{
      * worker启动时触发
      */
     public static function onWorkerStart($businessWorker){
-        $dbConfig = require('./db_config')['mysql'];
+        $dbConfig = require(__DIR__.'/Applications/wxapp/db_config.php')['mysql'];
         self::$db = new Workerman\MySQL\Connection($dbConfig['host'], $dbConfig['port'], $dbConfig['user'], $dbConfig['password'], $dbConfig['db_name']);
     }
 
