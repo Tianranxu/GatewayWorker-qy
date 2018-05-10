@@ -36,7 +36,7 @@ class Events{
      * worker启动时触发
      */
     public static function onWorkerStart($businessWorker){
-        $dbConfig = require(__DIR__.'/Applications/wxapp/db_config.php')['mysql'];
+        $dbConfig = json_decode(file_get_contents(__DIR__.'/Applications/wxapp/db_config.json'), true)['mysql'];
         self::$db = new Workerman\MySQL\Connection($dbConfig['host'], $dbConfig['port'], $dbConfig['user'], $dbConfig['password'], $dbConfig['db_name']);
     }
 

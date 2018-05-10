@@ -11,7 +11,7 @@ class Receiver {
     protected $appconfig;
     
     function __construct() {
-        $this->appconfig = require(__DIR__ . '/app_config.php');
+        $this->appconfig = json_decode(file_get_contents(__DIR__ . '/app_config.json'), true);
         Gateway::$registerAddress = '127.0.0.1:1238';
     }
 
