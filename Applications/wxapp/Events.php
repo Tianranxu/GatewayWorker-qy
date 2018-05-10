@@ -12,8 +12,8 @@
  * @license http://www.opensource.org/licenses/mit-license.php MIT License
  */
 
-require_once __DIR__.'/Applications/wxapp/redis_helper.php';
-require_once __DIR__.'/Applications/wxapp/qiyuApi/sender.php';
+require_once __DIR__.'/redis_helper.php';
+require_once __DIR__.'/qiyuApi/sender.php';
 
 /**
  * 用于检测业务代码死循环或者长时间阻塞等问题
@@ -36,7 +36,7 @@ class Events{
      * worker启动时触发
      */
     public static function onWorkerStart($businessWorker){
-        $dbConfig = json_decode(file_get_contents(__DIR__.'/Applications/wxapp/db_config.json'), true)['mysql'];
+        $dbConfig = json_decode(file_get_contents(__DIR__.'/db_config.json'), true)['mysql'];
         self::$db = new Workerman\MySQL\Connection($dbConfig['host'], $dbConfig['port'], $dbConfig['user'], $dbConfig['password'], $dbConfig['db_name']);
     }
 
@@ -104,7 +104,7 @@ class Events{
         $userInfo = [
             'type' => 'userInfo',
             'user' => $user,
-            'record' => self::getRecordByPage($uid, 1, $msgData['limit'], $redis)
+            'record' => self::getRecordByPage($uid, 1, $msgData['msg']['limit'], $redis)
         ];
         Gateway::sendToClient($userLoginInfo['client_id'], json_encode($userInfo));
 
@@ -138,15 +138,15 @@ class Events{
         $sender = new sender();
         $msgContent = [
             'uid' => $userLoginInfo[0],
-            'msgType' => $msgData['contentType'],
-            'content' => $msgData['content']
+            'msgType' => $msgData['msg']['contentType'],
+            'content' => $msgData['msg']['content']
         ];
-        $sender->pushMsg($msgContent);
+        $result = $sender->pushMsg($msgContent);
         $chat = [
                     'isMe' => 'is',
                     'uid' => $userLoginInfo[0],
-                    'contentType' => $msgData['contentType'],
-                    'content' => $msgData['content']
+                    'contentType' => $msgData['msg']['contentType'],
+                    'content' => $msgData['msg']['content']
         ];
         self::addChatRecord($redis, $chat, $userLoginInfo[0]);
         return ;
@@ -155,7 +155,7 @@ class Events{
     public static function eventHistory($msgData, $userLoginInfo, $redis){
         $history = [
             'type' => 'history',
-            'record' => self::getRecordByPage($userLoginInfo, $msgData['page'], $msgData['limit'], $redis)
+            'record' => self::getRecordByPage($userLoginInfo, $msgData['msg']['page'], $msgData['msg']['limit'], $redis)
         ];
         Gateway::sendToClient($userLoginInfo['client_id'], json_encode($history));
         return ;

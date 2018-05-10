@@ -6,12 +6,12 @@
 class RedisHelper {
     protected $redisConfig;
     public function __construct(){
-        $this->redisConfig = json_decode(file_get_contents(__DIR__.'/db_config.php'), true)['redis'];
+        $this->redisConfig = json_decode(file_get_contents(__DIR__.'/db_config.json'), true)['redis'];
     }
 
     public function connect_redis($type = 'pconnect'){
         $redis = new Redis();
-        ($type == 'connect') 
+        ($type == 'connect')
             ? $redis->pconnect($this->redisConfig['host'], $this->redisConfig['port'])
             : $redis->connect($this->redisConfig['host'], $this->redisConfig['port']);
         $redis->auth($this->redisConfig['authKey']);

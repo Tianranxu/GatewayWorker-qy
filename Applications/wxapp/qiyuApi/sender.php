@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/helper.php';
+require_once __DIR__.'/helper.php';
 
 use qiyu\helper\Helper;
 /**
@@ -9,7 +9,7 @@ class Sender {
     protected $appconfig;
 
     function __construct(){
-        $this->appconfig = json_decode(file_get_contents('app_config.json'), true);
+        $this->appconfig = json_decode(file_get_contents(__DIR__.'/app_config.json'), true);
     }
 
     /**
