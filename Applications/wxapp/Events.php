@@ -72,7 +72,7 @@ class Events{
         }
         $userLoginInfo['client_id'] = $client_id;
         //update token's timestamp
-        $redis->zAdd('recentUser', $msgData['token'], time());
+        $redis->zAdd('recentUser', time(), $msgData['token']);
 
         $functionName = 'event'.ucwords($msgData['type']);
         self::$functionName($msgData, $userLoginInfo, $redis);
@@ -91,6 +91,7 @@ class Events{
         //bind uid to client_id
         $clientIds = Gateway::getClientIdByUid($uid);
         if (!empty($clientIds)) {
+            //bind one uid to one clientId at the same time
             foreach ($clientIds as $clientId) {
                 Gateway::closeClient($clientId);
             }
@@ -98,7 +99,7 @@ class Events{
         Gateway::bindUid($userLoginInfo['client_id'], $uid);
 
         //get userInfo
-        $user = self::$db->select('uid,user_type,avatarUrl')->from('users')->where('uid= :uid')->bindValues(array('uid'=>$uid))->query();
+        $user = self::$db->select('uid,user_type,avatarUrl')->from('users')->where('uid= :uid')->bindValues(['uid'=>$uid])->query();
         
         //send userInfo to user(with chat record if there is)
         $userInfo = [

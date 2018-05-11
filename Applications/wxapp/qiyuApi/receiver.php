@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__.'/helper.php';
-require_once '../redis_helper.php';
-require_once '../GatewayClient/Gateway.php';
+require_once __DIR__.'/../redis_helper.php';
+require_once __DIR__.'/../GatewayClient/Gateway.php';
 
 use GatewayClient\Gateway;
 /**
