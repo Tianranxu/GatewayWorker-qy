@@ -116,11 +116,11 @@ class Events{
             'staffType' => 1
         ];
         $staffResult = $sender->applyStaff($msgContent);
-        if ($staffResult['code'] == '200') {
+        if ($staffResult['code'] == '200' && isset($staffResult['message'])) {
             $redis->hSet('client_staff', $userLoginInfo['client_id'], $staffResult['staffId']); //or robotId
             $chat = [
                         'isMe' => false,
-                        'staffId' => $post_data['staffId'],
+                        'staffId' => $staffResult['staffId'],
                         'contentType' => 'TEXT',
                         'content' => $staffResult['message'],
                         'avatar' => $staffResult['staffIcon']
