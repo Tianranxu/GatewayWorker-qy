@@ -27,7 +27,7 @@ class Sender {
      */
     public function applyStaff($msgContent){
         $url = $this->getUrl('https://qiyukf.com/openapi/event/applyStaff', $msgContent);
-        return Helper::http_post($url, json_encode($msgContent));
+        return Helper::http_post($url, $msgContent);
     }
 
     /**
@@ -36,7 +36,7 @@ class Sender {
      */  
     public function updateUserInfo($msgContent){
         $url = $this->getUrl('https://qiyukf.com/openapi/event/updateUInfo', $msgContent);
-        return Helper::http_post($url, json_encode($msgContent));
+        return Helper::http_post($url, $msgContent);
     }
 
     /**
@@ -45,7 +45,7 @@ class Sender {
      */
     public function evaluate($msgContent){
         $url = $this->getUrl('https://qiyukf.com/openapi/event/evaluate', $msgContent);
-        return Helper::http_post($url, json_encode($msgContent));
+        return Helper::http_post($url, $msgContent);
     }
 
     /**
@@ -54,7 +54,7 @@ class Sender {
      */
     public function queryQueueStatus($msgContent){
         $url = $this->getUrl('https://qiyukf.com/openapi/event/queryQueueStatu', $msgContent);
-        return Helper::http_post($url, json_encode($msgContent));
+        return Helper::http_post($url, $msgContent);
     }
 
     /**
@@ -63,11 +63,11 @@ class Sender {
     */
     public function quitQueue($msgContent){
         $url = $this->getUrl('https://qiyukf.com/openapi/event/quitQueue', $msgContent);
-        return Helper::http_post($url, json_encode($msgContent));
+        return Helper::http_post($url, $msgContent);
     }
     
     public function getUrl($frontUrl, $msgContent){
         $time = time();
-        return $frontUrl . '?appKey='.$this->appconfig['key'].'&time='.$time.'&checksum='.Helper::getChecksum($this->appconfig['secrect'], json_encode($msgContent), $time);
+        return $frontUrl . '?appKey='.$this->appconfig['key'].'&time='.$time.'&checksum='.Helper::getChecksum($this->appconfig['secret'], json_encode($msgContent), $time);
     }
 }

@@ -21,7 +21,8 @@ class Helper {
             return false;
         }
     }
-
+    
+    //http post with json content
     public static function http_post($url, $parameter){
         $oCurl = curl_init ();
         if (stripos ( $url, "https://" ) !== FALSE) {
@@ -32,7 +33,8 @@ class Helper {
         curl_setopt ( $oCurl, CURLOPT_RETURNTRANSFER, 1 );
         curl_setopt ( $oCurl, CURLOPT_TIMEOUT, 15 );
         curl_setopt ( $oCurl, CURLOPT_POST, true );
-        curl_setopt ( $oCurl, CURLOPT_POSTFIELDS, $parameter );
+        curl_setopt ( $oCurl, CURLOPT_POSTFIELDS, json_encode($parameter) );
+        curl_setopt ( $oCurl, CURLOPT_HTTPHEADER, array('Content-Type:application/json') );
         $sContent = curl_exec ( $oCurl );
         $aStatus = curl_getinfo ( $oCurl );
         curl_close ( $oCurl );
