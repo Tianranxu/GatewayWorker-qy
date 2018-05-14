@@ -4,6 +4,7 @@ require_once __DIR__.'/../redis_helper.php';
 require_once __DIR__.'/../GatewayClient/Gateway.php';
 
 use GatewayClient\Gateway;
+use qiyu\helper\Helper;
 /**
 * receive request from qiyu server
 */
@@ -16,9 +17,9 @@ class Receiver {
     }
 
     //七鱼请求处理方法
-    public function handler(){
+    protected function handler(){
         $json_data = file_get_contents("php://input");
-        if (!$this->checksum($_GET['checksum'], $json_data, $_GET['time'])){
+        if (!$this->verify($_GET['checksum'], $json_data, $_GET['time'])){
             echo '';
             return ;
         }
@@ -91,7 +92,7 @@ class Receiver {
     }
 
     //验签
-    public function checksum($checksum, $json_data, $time){
+    public function verify($checksum, $json_data, $time){
         if($checksum == Helper::getChecksum( $this->appconfig['secret'], $json_data, $time)){
             return true;
         }

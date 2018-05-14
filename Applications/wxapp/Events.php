@@ -131,6 +131,8 @@ class Events{
             ];
             Gateway::sendToClient($userLoginInfo['client_id'], json_encode($chatContent));
             self::addChatRecord($redis, $chat, $uid);
+        }else{
+            
         }
         return ;
     }

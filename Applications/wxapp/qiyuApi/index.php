@@ -4,7 +4,7 @@
 
 header ( "Content-type:text/html;charset=utf-8" );
 
-require_once 'receiver.php';
+require_once __DIR__.'/receiver.php';
 
 $obj = new Receiver();
 $obj->handler();
