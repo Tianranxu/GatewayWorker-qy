@@ -17,7 +17,7 @@ class Receiver {
     }
 
     //七鱼请求处理方法
-    protected function handler(){
+    public function handler(){
         $json_data = file_get_contents("php://input");
         if (!$this->verify($_GET['checksum'], $json_data, $_GET['time'])){
             echo '';
@@ -31,7 +31,7 @@ class Receiver {
     public function event_msg($post_data){
         $redis_helper = new RedisHelper();
         $redis = $redis_helper->connect_redis('connect');
-        if ($redis->zScore($post_data['msgId']) !== false) {
+        if ($redis->zScore('msgId', $post_data['msgId']) !== false) {
             //消息验重
             echo '';
             return false;

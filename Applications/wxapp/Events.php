@@ -48,7 +48,7 @@ class Events{
     */
     public static function onConnect($client_id) {
         // 向当前client_id发送数据 
-        Gateway::sendToClient($client_id, "Hello $client_id\n");
+        Gateway::sendToClient($client_id, json_encode(['hello' => $client_id]));
     }
 
     /**
@@ -65,11 +65,12 @@ class Events{
             Gateway::closeClient($client_id);
             return false;
         }
-        $userLoginInfo = explode('`', $redis->hGet('loginUser', $msgData['token']));
-        if (empty($userLoginInfo)) {
+        $user_str = $redis->hGet('loginUser', $msgData['token']);
+        if (empty($user_str)) {
             Gateway::closeClient($client_id);
             return false;
         }
+        $userLoginInfo = explode('`', $user_str);
         $userLoginInfo['client_id'] = $client_id;
         //update token's timestamp
         $redis->zAdd('recentUser', time(), $msgData['token']);
@@ -158,7 +159,7 @@ class Events{
     public static function eventHistory($msgData, $userLoginInfo, $redis){
         $history = [
             'type' => 'history',
-            'record' => self::getRecordByPage($userLoginInfo, $msgData['msg']['page'], $msgData['msg']['limit'], $redis)
+            'record' => self::getRecordByPage($userLoginInfo[0], $msgData['msg']['page'], $msgData['msg']['limit'], $redis)
         ];
         Gateway::sendToClient($userLoginInfo['client_id'], json_encode($history));
         return ;
