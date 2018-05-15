@@ -39,12 +39,13 @@ class Receiver {
         $redis->zAdd('msgId', $post_data['msgId'], $post_data['timeStamp']);
         //发送给用户
         $staff = explode('`', $redis->hGet('staffInfo', $post_data['staffId']));
+        $content = ($post_data['msgType'] == 'PICTURE') ? ['url' => $post_data['content']['url']] : $post_data['content'];
         $chatContent = [
             'type' => 'say',
             'msg' => [
                 [
                     'contentType' => $post_data['msgType'],
-                    'content' => $post_data['content'],
+                    'content' => $content,
                     'isMe' => false,
                     'avatar' => $staff[1]
                 ]
@@ -97,5 +98,10 @@ class Receiver {
             return true;
         }
         return false;
-    } 
+    }
+
+    protected function logger($content,$file = 'qiyu_receiver.log'){
+        file_put_contents($file, '['.date('Y-m-d H:i:s').'] - '.json_encode($content)."\n", FILE_APPEND | LOCK_EX);
+        return ; 
+    }
 }
