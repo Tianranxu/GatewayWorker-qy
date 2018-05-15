@@ -163,6 +163,13 @@ class Events{
         return ;
     }
 
+    public static function eventSwitchStaff($msgData, $userLoginInfo, $redis){
+        $sender = new sender();
+        $result = $sender->getOnlineStaff(['groupIds' => []]);
+        var_dump($result);
+        return ;
+    }
+
     public static function eventHeartbeat($msgData, $userLoginInfo, $redis){
         return ;
     }

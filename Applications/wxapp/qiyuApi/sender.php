@@ -65,6 +65,11 @@ class Sender {
         $url = $this->getUrl('https://qiyukf.com/openapi/event/quitQueue', $msgContent);
         return Helper::http_post($url, $msgContent);
     }
+
+    public function getOnlineStaff($msgContent){
+        $url = $this->getUrl('https://qiyukf.com/openapi/data/overview/staff/list/online', $msgContent);
+        return Helper::http_post($url, $msgContent);
+    }
     
     public function getUrl($frontUrl, $msgContent){
         $time = time();
