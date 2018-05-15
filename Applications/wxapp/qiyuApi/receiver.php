@@ -56,26 +56,36 @@ class Receiver {
         
         $redis_helper->close_redis($redis);
         echo '';
+        return ;
     }
 
     public function event_session_start($post_data){
+        Gateway::sendToUid($post_data['uid'], json_encode([
+            'type' => 'notice',
+            'msg' => 'session_start'
+        ]));
         echo '';
+        return ;
     }
 
     public function event_session_end($post_data){
         echo '';
+        return ;
     }
 
     public function event_eva_invitation($post_data){
         echo '';
+        return ;
     }
 
     public function event_user_join_queue($post_data){
         echo '';
+        return ;
     }
 
     public function event_queue_timeout($post_data){
         echo '';
+        return ;
     }
 
     public function addStaffChatRecord($redis, $post_data, $avatar){
