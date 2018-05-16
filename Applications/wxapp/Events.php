@@ -164,9 +164,29 @@ class Events{
     }
 
     public static function eventSwitchStaff($msgData, $userLoginInfo, $redis){
+        //check switch times
+        $user = self::$db->select('uid,switch_times')->from('users')->where('uid= :uid')->bindValues(['uid'=>$userLoginInfo[0]])->query();
+        if ($user['switch_times'] >= 3) {
+            Gateway::sendToClient($userLoginInfo['client_id'], json_encode([
+                'type' => 'switchStaff',
+                'code' => 233,
+                'msg' => 'switch times exceeded'
+            ]));
+            return ;
+        }
+
+        //get online staff
         $sender = new sender();
         $result = $sender->getOnlineStaff(['groupIds' => []]);
         var_dump($result);
+        
+        //apply staff
+        $msgContent = [
+            'uid' => $uid,
+            'staffType' => 1,
+            'staffId' => $staffId
+        ];
+        $staffResult = $sender->applyStaff($msgContent);
         return ;
     }
 
