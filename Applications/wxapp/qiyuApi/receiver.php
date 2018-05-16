@@ -62,7 +62,8 @@ class Receiver {
     public function event_session_start($post_data){
         Gateway::sendToUid($post_data['uid'], json_encode([
             'type' => 'notice',
-            'msg' => 'session_start'
+            'msg' => 'session_start',
+            'staffId' => $post_data['staffId']
         ]));
         echo '';
         return ;

@@ -100,7 +100,7 @@ class Events{
         Gateway::bindUid($userLoginInfo['client_id'], $uid);
 
         //get userInfo
-        $user = self::$db->select('uid,user_type,avatarUrl')->from('users')->where('uid= :uid')->bindValues(['uid'=>$uid])->query();
+        $user = self::$db->select('uid,user_type,avatarUrl')->from('users')->where('uid= :uid')->bindValues(['uid'=>$uid])->query()[0];
         
         //send userInfo to user(with chat record if there is)
         $userInfo = [
@@ -117,7 +117,7 @@ class Events{
             'staffType' => 1
         ];
         $staffResult = $sender->applyStaff($msgContent);
-        if ($staffResult['code'] == '200' && isset($staffResult['message'])) {
+        if ($staffResult['code'] == 200 && isset($staffResult['message'])) {
             $redis->hSet('client_staff', $userLoginInfo['client_id'], $staffResult['staffId']); //or robotId
             $chat = [
                         'isMe' => false,
@@ -132,6 +132,9 @@ class Events{
             ];
             Gateway::sendToClient($userLoginInfo['client_id'], json_encode($chatContent));
             self::addChatRecord($redis, $chat, $uid);
+        }elseif ($staffResult['code'] == 14005) {
+            unset($chatContent['msg']['staffId'], $chatContent['msg']['avatar']);
+            Gateway::sendToClient($userLoginInfo['client_id'], json_encode($chatContent));
         }
         return ;
     }
@@ -165,7 +168,7 @@ class Events{
 
     public static function eventSwitchStaff($msgData, $userLoginInfo, $redis){
         //check switch times
-        $user = self::$db->select('uid,switch_times')->from('users')->where('uid= :uid')->bindValues(['uid'=>$userLoginInfo[0]])->query();
+        $user = self::$db->select('uid,switch_times')->from('users')->where('uid= :uid')->bindValues(['uid'=>$userLoginInfo[0]])->query()[0];
         if ($user['switch_times'] >= 3) {
             Gateway::sendToClient($userLoginInfo['client_id'], json_encode([
                 'type' => 'switchStaff',
@@ -176,17 +179,31 @@ class Events{
         }
 
         //get online staff
+
         $sender = new sender();
         $result = $sender->getOnlineStaff(['groupIds' => []]);
-        var_dump($result);
-        
+        if ($result['code'] == 200) {
+            $staffId = self::getStaffId($result['list'], $msgData['staffId']);
+        }
+
         //apply staff
-        $msgContent = [
-            'uid' => $uid,
-            'staffType' => 1,
-            'staffId' => $staffId
-        ];
-        $staffResult = $sender->applyStaff($msgContent);
+        if (!empty($staffId)) {
+            $msgContent = [
+                'uid' => $userLoginInfo[0],
+                'staffType' => 1,
+                'staffId' => $staffId
+            ];
+            $staffResult = $sender->applyStaff($msgContent);
+            if ($staffResult['code'] == 200) {
+                self::$db->query("UPDATE users SET switch_times=switch_times+1 WHERE uid=".$userLoginInfo[0]);
+            }
+        }else{
+            Gateway::sendToClient($userLoginInfo['client_id'], json_encode([
+                'type' => 'switchStaff',
+                'code' => 404,
+                'msg' => 'no available staff'
+            ]));
+        }
         return ;
     }
 
@@ -216,6 +233,15 @@ class Events{
         //仅保留最新的30条数据
         $redis->lTrim('chatRecord:'.$uid, 0, 29);
         return ; 
+    }
+
+    public static function getStaffId($onlineStaffList, $currentStaffId){
+        foreach ($onlineStaffList as $staff) {
+            if ($staff['role'] == 0  && $staff['staffId'] != $currentStaffId) {
+                $idList[] = $staff['staffId'];
+            }
+        }
+        return $idList[array_rand($idList)];
     }
 
     /**
