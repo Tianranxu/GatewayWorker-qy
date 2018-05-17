@@ -100,7 +100,7 @@ class Events{
         Gateway::bindUid($userLoginInfo['client_id'], $uid);
 
         //get userInfo
-        $user = self::$db->select('uid,user_type,avatarUrl')->from('users')->where('uid= :uid')->bindValues(['uid'=>$uid])->query()[0];
+        $user = self::getUserInfo($uid);
         
         //send userInfo to user(with chat record if there is)
         $userInfo = [
@@ -178,8 +178,7 @@ class Events{
             return ;
         }
 
-        //get online staff
-
+        //get online staff (maybe get it from redis first)
         $sender = new sender();
         $result = $sender->getOnlineStaff(['groupIds' => []]);
         if ($result['code'] == 200) {
@@ -237,11 +236,19 @@ class Events{
 
     public static function getStaffId($onlineStaffList, $currentStaffId){
         foreach ($onlineStaffList as $staff) {
-            if ($staff['role'] == 0  && $staff['staffId'] != $currentStaffId) {
+            if ($staff['role'] == 0  
+            && $staff['staffId'] != $currentStaffId
+            && $staff['status' == 1]) {
                 $idList[] = $staff['staffId'];
             }
         }
         return $idList[array_rand($idList)];
+    }
+
+    public static function getUserInfo($uid){
+        //TODO get user answer and question
+        $userAnswer = self::$db->query("select ua.uid,ua.question_id,ua.answer,q.content,q.option,q.sort from user_answer as ua, questions as q where q.status=1 and q.question_id=ua.question_id and ua.uid=".$uid." order by q.sort");
+        return $userAnswer;
     }
 
     /**
