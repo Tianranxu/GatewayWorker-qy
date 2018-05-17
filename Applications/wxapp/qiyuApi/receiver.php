@@ -39,7 +39,7 @@ class Receiver {
         $redis->zAdd('msgId', $post_data['msgId'], $post_data['timeStamp']);
         //发送给用户
         $staff = explode('`', $redis->hGet('staffInfo', $post_data['staffId']));
-        $content = ($post_data['msgType'] == 'PICTURE') ? ['url' => $post_data['content']['url']] : $post_data['content'];
+        $content = ($post_data['msgType'] == 'PICTURE') ? $post_data['content']['url'] : $post_data['content'];
         $chatContent = [
             'type' => 'say',
             'msg' => [
