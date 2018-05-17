@@ -216,7 +216,12 @@ class Events{
         return ;
     }
 
+    public static function eventComplain($msgData, $userLoginInfo){
+
+    }
+
     public static function eventHeartbeat($msgData, $userLoginInfo){
+        Gateway::sendToClient($userLoginInfo['client_id'], "{'msg':'hehe'}");
         return ;
     }
 
@@ -253,27 +258,28 @@ class Events{
             }
         }
         if (!isset($idList)) {
-            return ;   
+            return ;
         }
         return $idList[array_rand($idList)];
     }
 
     public static function getUserInfo($uid){
-        //TODO get user answer and question
+        //get user answer and question
+        $answers = [];
         $userAnswer = self::$db->query("select ua.uid,ua.question_id,ua.answer,q.content,q.option,q.sort from user_answer as ua, questions as q where q.status=1 and q.question_id=ua.question_id and ua.uid=".$uid." order by q.sort");
         foreach ($userAnswer as $user) {
             $options = json_decode($user['option'], true);
             foreach ($options as $option) {
                 foreach ($option as $key => $content) {
                     if ($user['answer'] == $key) {
-                        $answers[$user['sort']] = $content;
+                        $answers[] = [$user['sort'] => $content];
                     }
                 }
            }
         }
         $userInfo = [
             'isMe' => true,
-            'contentType' => 'TEXT',
+            'contentType' => 'INFO_CARD',
             'content' => $answers,
         ];
         return $userInfo;
@@ -284,13 +290,6 @@ class Events{
     * @param int $client_id 连接id
     */
     public static function onClose($client_id) {
-        /*$redis_helper = new RedisHelper();
-        $redis = $redis_helper->connect_redis('pconnect');
-        $staff = $redis->hGet('client_staff', $client_id);
-        if (empty($staff)) {
-            return ;
-        }
-        $redis->hDel('client_staff', $client_id);*/
         // send request to qiyu that user logout
         $uid = self::$redis->hget('clientid2uid', $client_id);
         self::$redis->hDel('clientid2uid', $client_id);
@@ -299,7 +298,7 @@ class Events{
             'msgType' => 'TEXT',
             'content' => '#系统消息#用户已离开会话'
         ];
+        $sender = new sender();
         $result = $sender->pushMsg($msgContent);
     }
-
 }

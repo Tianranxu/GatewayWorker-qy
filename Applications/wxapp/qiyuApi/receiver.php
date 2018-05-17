@@ -52,7 +52,7 @@ class Receiver {
             ]
         ];
         Gateway::sendToUid($post_data['uid'], json_encode($chatContent));
-        $this->addStaffChatRecord($redis, $post_data, $staff[1]);
+        $this->addStaffChatRecord($redis, $post_data, $staff[1], $content);
         
         echo '';
         return ;
@@ -88,12 +88,12 @@ class Receiver {
         return ;
     }
 
-    public function addStaffChatRecord($redis, $post_data, $avatar){
+    public function addStaffChatRecord($redis, $post_data, $avatar, $content){
         $record = [
             'isMe' => 'not',
             'staffId' => $post_data['staffId'],
             'msgType' => $post_data['msgType'],
-            'content' => $post_data['content'],
+            'content' => $content,
             'staff_avatar' => $avatar
         ];
         $redis->lPush('chatRecord:'.$post_data['uid'], implode('`', $record));
