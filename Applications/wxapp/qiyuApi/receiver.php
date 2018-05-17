@@ -30,7 +30,7 @@ class Receiver {
 
     public function event_msg($post_data){
         $redis_helper = new RedisHelper();
-        $redis = $redis_helper->connect_redis('connect');
+        $redis = $redis_helper->connect_redis('pconnect');
         if ($redis->zScore('msgId', $post_data['msgId']) !== false) {
             //消息验重
             echo '';
@@ -54,7 +54,6 @@ class Receiver {
         Gateway::sendToUid($post_data['uid'], json_encode($chatContent));
         $this->addStaffChatRecord($redis, $post_data, $staff[1]);
         
-        $redis_helper->close_redis($redis);
         echo '';
         return ;
     }

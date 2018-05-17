@@ -32,12 +32,15 @@ use \GatewayWorker\Lib\Gateway;
 class Events{
     public static $db = null;
 
+    public static $redis = null;
     /**
      * worker启动时触发
      */
     public static function onWorkerStart($businessWorker){
         $dbConfig = json_decode(file_get_contents(__DIR__.'/db_config.json'), true)['mysql'];
         self::$db = new Workerman\MySQL\Connection($dbConfig['host'], $dbConfig['port'], $dbConfig['user'], $dbConfig['password'], $dbConfig['db_name']);
+        $redis_helper = new RedisHelper();
+        self::$redis = $redis_helper->connect_redis('connect');
     }
 
     /**
@@ -58,25 +61,24 @@ class Events{
     */
     public static function onMessage($client_id, $message) {
         $msgData = json_decode($message, true);
-        $redis_helper = new RedisHelper();
-        $redis = $redis_helper->connect_redis('pconnect');
         //check user
         if (empty($msgData['token'])) {
             Gateway::closeClient($client_id);
             return false;
         }
-        $user_str = $redis->hGet('loginUser', $msgData['token']);
+        $user_str = self::$redis->hGet('loginUser', $msgData['token']);
         if (empty($user_str)) {
             Gateway::closeClient($client_id);
             return false;
         }
         $userLoginInfo = explode('`', $user_str);
         $userLoginInfo['client_id'] = $client_id;
+        self::$redis->hSet('clientid2uid', $client_id, $userLoginInfo[0]);
         //update token's timestamp
-        $redis->zAdd('recentUser', time(), $msgData['token']);
+        self::$redis->zAdd('recentUser', time(), $msgData['token']);
 
         $functionName = 'event'.ucwords($msgData['type']);
-        self::$functionName($msgData, $userLoginInfo, $redis);
+        self::$functionName($msgData, $userLoginInfo);
 
         /*TODO 
         1.userInfo(bind uid to client_id; get userInfo to send current user(with history in page 1) send request to customer service; add client_staff;)
@@ -87,7 +89,7 @@ class Events{
         */
     }
 
-    public static function eventUserInfo($msgData, $userLoginInfo, $redis){
+    public static function eventUserInfo($msgData, $userLoginInfo){
         $uid = $userLoginInfo[0];
         //bind uid to client_id
         $clientIds = Gateway::getClientIdByUid($uid);
@@ -106,7 +108,7 @@ class Events{
         $userInfo = [
             'type' => 'userInfo',
             'user' => $user,
-            'record' => self::getRecordByPage($uid, 1, $msgData['msg']['limit'], $redis)
+            'record' => self::getRecordByPage($uid, 1, $msgData['msg']['limit'])
         ];
         Gateway::sendToClient($userLoginInfo['client_id'], json_encode($userInfo));
 
@@ -117,29 +119,37 @@ class Events{
             'staffType' => 1
         ];
         $staffResult = $sender->applyStaff($msgContent);
-        if ($staffResult['code'] == 200 && isset($staffResult['message'])) {
-            $redis->hSet('client_staff', $userLoginInfo['client_id'], $staffResult['staffId']); //or robotId
-            $chat = [
-                        'isMe' => false,
-                        'staffId' => $staffResult['staffId'],
-                        'contentType' => 'TEXT',
-                        'content' => $staffResult['message'],
-                        'avatar' => $staffResult['staffIcon']
-            ];
-            $chatContent = [
-                'type' => 'say',
-                'msg' => [$chat]
-            ];
-            Gateway::sendToClient($userLoginInfo['client_id'], json_encode($chatContent));
-            self::addChatRecord($redis, $chat, $uid);
+        if ($staffResult['code'] == 200) {
+            Gateway::sendToClient($userLoginInfo['client_id'], json_encode([
+                'type' => 'notice',
+                'msg' => 'session_start',
+                'staffId' => $staffResult['staffId']
+            ]));
+            if (isset($staffResult['message'])) {
+                $chat = [
+                            'isMe' => false,
+                            'staffId' => $staffResult['staffId'],
+                            'contentType' => 'TEXT',
+                            'content' => $staffResult['message'],
+                            'avatar' => $staffResult['staffIcon']
+                ];
+                $chatContent = [
+                    'type' => 'say',
+                    'msg' => [$chat]
+                ];
+                Gateway::sendToClient($userLoginInfo['client_id'], json_encode($chatContent));
+                self::addChatRecord($chat, $uid);
+            }
         }elseif ($staffResult['code'] == 14005) {
-            unset($chatContent['msg']['staffId'], $chatContent['msg']['avatar']);
-            Gateway::sendToClient($userLoginInfo['client_id'], json_encode($chatContent));
+            Gateway::sendToClient($userLoginInfo['client_id'], json_encode([
+                'type' => 'notice',
+                'msg' => 'leave_msg'
+            ]));
         }
         return ;
     }
 
-    public static function eventSay($msgData, $userLoginInfo, $redis){
+    public static function eventSay($msgData, $userLoginInfo){
         $sender = new sender();
         $msgContent = [
             'uid' => $userLoginInfo[0],
@@ -153,20 +163,20 @@ class Events{
                     'contentType' => $msgData['msg']['contentType'],
                     'content' => $msgData['msg']['content']
         ];
-        self::addChatRecord($redis, $chat, $userLoginInfo[0]);
+        self::addChatRecord($chat, $userLoginInfo[0]);
         return ;
     }
 
-    public static function eventHistory($msgData, $userLoginInfo, $redis){
+    public static function eventHistory($msgData, $userLoginInfo){
         $history = [
             'type' => 'history',
-            'record' => self::getRecordByPage($userLoginInfo[0], $msgData['msg']['page'], $msgData['msg']['limit'], $redis)
+            'record' => self::getRecordByPage($userLoginInfo[0], $msgData['msg']['page'], $msgData['msg']['limit'])
         ];
         Gateway::sendToClient($userLoginInfo['client_id'], json_encode($history));
         return ;
     }
 
-    public static function eventSwitchStaff($msgData, $userLoginInfo, $redis){
+    public static function eventSwitchStaff($msgData, $userLoginInfo){
         //check switch times
         $user = self::$db->select('uid,switch_times')->from('users')->where('uid= :uid')->bindValues(['uid'=>$userLoginInfo[0]])->query()[0];
         if ($user['switch_times'] >= 3) {
@@ -206,12 +216,12 @@ class Events{
         return ;
     }
 
-    public static function eventHeartbeat($msgData, $userLoginInfo, $redis){
+    public static function eventHeartbeat($msgData, $userLoginInfo){
         return ;
     }
 
-    public static function getRecordByPage($uid, $page, $limit, $redis){
-        $chats = $redis->lRange('chatRecord:'.$uid, $limit*($page-1), $page*$limit-1);
+    public static function getRecordByPage($uid, $page, $limit){
+        $chats = self::$redis->lRange('chatRecord:'.$uid, $limit*($page-1), $page*$limit-1);
         if (empty($chats)) {
             return '';
         }
@@ -227,11 +237,11 @@ class Events{
         return $records;
     }
 
-    public static function addChatRecord($redis, $record, $uid){
-        $redis->lPush('chatRecord:'.$uid, implode('`', $record));
+    public static function addChatRecord($record, $uid){
+        self::$redis->lPush('chatRecord:'.$uid, implode('`', $record));
         //仅保留最新的30条数据
-        $redis->lTrim('chatRecord:'.$uid, 0, 29);
-        return ; 
+        self::$redis->lTrim('chatRecord:'.$uid, 0, 29);
+        return ;
     }
 
     public static function getStaffId($onlineStaffList, $currentStaffId){
@@ -242,13 +252,31 @@ class Events{
                 $idList[] = $staff['staffId'];
             }
         }
+        if (!isset($idList)) {
+            return ;   
+        }
         return $idList[array_rand($idList)];
     }
 
     public static function getUserInfo($uid){
         //TODO get user answer and question
         $userAnswer = self::$db->query("select ua.uid,ua.question_id,ua.answer,q.content,q.option,q.sort from user_answer as ua, questions as q where q.status=1 and q.question_id=ua.question_id and ua.uid=".$uid." order by q.sort");
-        return $userAnswer;
+        foreach ($userAnswer as $user) {
+            $options = json_decode($user['option'], true);
+            foreach ($options as $option) {
+                foreach ($option as $key => $content) {
+                    if ($user['answer'] == $key) {
+                        $answers[$user['sort']] = $content;
+                    }
+                }
+           }
+        }
+        $userInfo = [
+            'isMe' => true,
+            'contentType' => 'TEXT',
+            'content' => $answers,
+        ];
+        return $userInfo;
     }
 
     /**
@@ -256,14 +284,22 @@ class Events{
     * @param int $client_id 连接id
     */
     public static function onClose($client_id) {
-        $redis_helper = new RedisHelper();
+        /*$redis_helper = new RedisHelper();
         $redis = $redis_helper->connect_redis('pconnect');
         $staff = $redis->hGet('client_staff', $client_id);
         if (empty($staff)) {
             return ;
         }
-        $redis->hDel('client_staff', $client_id);
-        //TODO send request to qiyu that user logout
+        $redis->hDel('client_staff', $client_id);*/
+        // send request to qiyu that user logout
+        $uid = self::$redis->hget('clientid2uid', $client_id);
+        self::$redis->hDel('clientid2uid', $client_id);
+        $msgContent = [
+            'uid' => $uid,
+            'msgType' => 'TEXT',
+            'content' => '#系统消息#用户已离开会话'
+        ];
+        $result = $sender->pushMsg($msgContent);
     }
 
 }
