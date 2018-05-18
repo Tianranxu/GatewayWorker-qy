@@ -79,14 +79,6 @@ class Events{
 
         $functionName = 'event'.ucwords($msgData['type']);
         self::$functionName($msgData, $userLoginInfo);
-
-        /*TODO 
-        1.userInfo(bind uid to client_id; get userInfo to send current user(with history in page 1) send request to customer service; add client_staff;)
-        2.history(page) 
-        3.hearbeat 
-        4.say(send request to qiyu and save in redis)(contentType:text,img)
-        5.user behavior
-        */
     }
 
     public static function eventUserInfo($msgData, $userLoginInfo){
@@ -178,7 +170,7 @@ class Events{
 
     public static function eventSwitchStaff($msgData, $userLoginInfo){
         //check switch times
-        $user = self::$db->select('uid,switch_times')->from('users')->where('uid= :uid')->bindValues(['uid'=>$userLoginInfo[0]])->query()[0];
+        $user = self::$db->select('uid,switch_times,switch_staffs')->from('users')->where('uid= :uid')->bindValues(['uid'=>$userLoginInfo[0]])->query()[0];
         if ($user['switch_times'] >= 3) {
             Gateway::sendToClient($userLoginInfo['client_id'], json_encode([
                 'type' => 'switchStaff',
@@ -192,7 +184,10 @@ class Events{
         $sender = new sender();
         $result = $sender->getOnlineStaff(['groupIds' => []]);
         if ($result['code'] == 200) {
-            $staffId = self::getStaffId($result['list'], $msgData['staffId']);
+           $outStaffIds = ($user['switch_staffs']) 
+                ? array_push(explode(',', $user['switch_staffs']), $msgData['staffId'])
+                : [$msgData['staffId']];
+            $staffId = self::getStaffId($result['list'], $outStaffIds);
         }
 
         //apply staff
@@ -204,7 +199,8 @@ class Events{
             ];
             $staffResult = $sender->applyStaff($msgContent);
             if ($staffResult['code'] == 200) {
-                self::$db->query("UPDATE users SET switch_times=switch_times+1 WHERE uid=".$userLoginInfo[0]);
+                $strOutStaffIds = implode(',', $outStaffIds);
+                self::$db->query("UPDATE users SET switch_times=switch_times+1,switch_staffs={$strOutStaffIds} WHERE uid={$userLoginInfo[0]}");
             }
         }else{
             Gateway::sendToClient($userLoginInfo['client_id'], json_encode([
@@ -217,11 +213,18 @@ class Events{
     }
 
     public static function eventComplain($msgData, $userLoginInfo){
-
+        self::$db->insert('complain')->cols([
+            'select_content' => $msgData['select_content'],
+            'content' => $msg['content'],
+            'staff_id' => 'M',
+            'uid' => $userLoginInfo[0],
+            'create_at' => time()
+        ])->query();
+        return ;
     }
 
     public static function eventHeartbeat($msgData, $userLoginInfo){
-        Gateway::sendToClient($userLoginInfo['client_id'], "{'msg':'hehe'}");
+        Gateway::sendToClient($userLoginInfo['client_id'], '{"msg":"hehe"}');
         return ;
     }
 
@@ -249,10 +252,10 @@ class Events{
         return ;
     }
 
-    public static function getStaffId($onlineStaffList, $currentStaffId){
+    public static function getStaffId($onlineStaffList, $outStaffIds){
         foreach ($onlineStaffList as $staff) {
             if ($staff['role'] == 0  
-            && $staff['staffId'] != $currentStaffId
+            && (!in_array($staff['staffId'], $outStaffIds))
             && $staff['status' == 1]) {
                 $idList[] = $staff['staffId'];
             }
