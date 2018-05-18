@@ -81,6 +81,7 @@ class Events{
         self::$functionName($msgData, $userLoginInfo);
     }
 
+    //初始登录+分配客服
     public static function eventUserInfo($msgData, $userLoginInfo){
         $uid = $userLoginInfo[0];
         //bind uid to client_id
@@ -141,6 +142,7 @@ class Events{
         return ;
     }
 
+    //发送消息
     public static function eventSay($msgData, $userLoginInfo){
         $sender = new sender();
         $msgContent = [
@@ -159,6 +161,7 @@ class Events{
         return ;
     }
 
+    //历史消息
     public static function eventHistory($msgData, $userLoginInfo){
         $history = [
             'type' => 'history',
@@ -168,6 +171,7 @@ class Events{
         return ;
     }
 
+    //切换客服
     public static function eventSwitchStaff($msgData, $userLoginInfo){
         //check switch times
         $user = self::$db->select('uid,switch_times,switch_staffs')->from('users')->where('uid= :uid')->bindValues(['uid'=>$userLoginInfo[0]])->query()[0];
@@ -184,9 +188,10 @@ class Events{
         $sender = new sender();
         $result = $sender->getOnlineStaff(['groupIds' => []]);
         if ($result['code'] == 200) {
-           $outStaffIds = ($user['switch_staffs']) 
-                ? array_push(explode(',', $user['switch_staffs']), $msgData['staffId'])
-                : [$msgData['staffId']];
+            if ($user['switch_staffs']) {
+                $outStaffIds = explode(',', $user['switch_staffs']);
+            }
+            $outStaffIds[] = $msgData['staffId'];
             $staffId = self::getStaffId($result['list'], $outStaffIds);
         }
 
@@ -212,6 +217,7 @@ class Events{
         return ;
     }
 
+    //投诉客服
     public static function eventComplain($msgData, $userLoginInfo){
         self::$db->insert('complain')->cols([
             'select_content' => $msgData['select_content'],
@@ -223,6 +229,7 @@ class Events{
         return ;
     }
 
+    //心跳，用于维持连接
     public static function eventHeartbeat($msgData, $userLoginInfo){
         Gateway::sendToClient($userLoginInfo['client_id'], '{"msg":"hehe"}');
         return ;
@@ -256,7 +263,7 @@ class Events{
         foreach ($onlineStaffList as $staff) {
             if ($staff['role'] == 0  
             && (!in_array($staff['staffId'], $outStaffIds))
-            && $staff['status' == 1]) {
+            && $staff['status'] == 1) {
                 $idList[] = $staff['staffId'];
             }
         }
