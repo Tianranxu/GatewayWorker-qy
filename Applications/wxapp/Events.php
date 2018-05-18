@@ -62,7 +62,7 @@ class Events{
             return false;
         }
         $user_str = self::$redis->hGet('loginUser', $msgData['token']);
-        if (empty($user_str)) {
+        if (!$user_str) {
             Gateway::closeClient($client_id);
             return false;
         }
@@ -184,6 +184,7 @@ class Events{
         $sender = new sender();
         $result = $sender->getOnlineStaff(['groupIds' => []]);
         if ($result['code'] == 200) {
+            
             if ($user['switch_staffs']) {
                 $outStaffIds = explode(',', $user['switch_staffs']);
             }
@@ -202,6 +203,14 @@ class Events{
             if ($staffResult['code'] == 200) {
                 $strOutStaffIds = implode(',', $outStaffIds);
                 self::$db->query("UPDATE users SET switch_times=switch_times+1,switch_staffs={$strOutStaffIds} WHERE uid={$userLoginInfo[0]}");
+                //get userInfo
+                $user = self::getUserInfo($userLoginInfo[0]);
+                $userInfo = [
+                    'type' => 'userInfo',
+                    'user' => $user,
+                    'record' => ''
+                ];
+                Gateway::sendToClient($userLoginInfo['client_id'], json_encode($userInfo));
             }
         }else{
             Gateway::sendToClient($userLoginInfo['client_id'], json_encode([
