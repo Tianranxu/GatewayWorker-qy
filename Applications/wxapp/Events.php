@@ -24,11 +24,6 @@ require_once __DIR__.'/qiyuApi/sender.php';
 
 use \GatewayWorker\Lib\Gateway;
 
-/**
- * 主逻辑
- * 主要是处理 onConnect onMessage onClose 三个方法
- * onConnect 和 onClose 如果不需要可以不用实现并删除
- */
 class Events{
     public static $db = null;
 
@@ -165,6 +160,7 @@ class Events{
     public static function eventHistory($msgData, $userLoginInfo){
         $history = [
             'type' => 'history',
+            'historyType' => $msgData['historyType'],
             'record' => self::getRecordByPage($userLoginInfo[0], $msgData['msg']['page'], $msgData['msg']['limit'])
         ];
         Gateway::sendToClient($userLoginInfo['client_id'], json_encode($history));
@@ -221,8 +217,8 @@ class Events{
     public static function eventComplain($msgData, $userLoginInfo){
         self::$db->insert('complain')->cols([
             'select_content' => $msgData['select_content'],
-            'content' => $msg['content'],
-            'staff_id' => 'M',
+            'content' => $msgData['content'],
+            'staff_id' => $msgData['staffId'],
             'uid' => $userLoginInfo[0],
             'create_at' => time()
         ])->query();
