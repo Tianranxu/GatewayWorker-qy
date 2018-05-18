@@ -139,20 +139,21 @@ class Events{
 
     //发送消息
     public static function eventSay($msgData, $userLoginInfo){
+        $uid = $userLoginInfo[0];
         $sender = new sender();
         $msgContent = [
-            'uid' => $userLoginInfo[0],
+            'uid' => $uid,
             'msgType' => $msgData['msg']['contentType'],
             'content' => $msgData['msg']['content']
         ];
         $result = $sender->pushMsg($msgContent);
         $chat = [
                     'isMe' => 'is',
-                    'uid' => $userLoginInfo[0],
+                    'uid' => $uid,
                     'contentType' => $msgData['msg']['contentType'],
                     'content' => $msgData['msg']['content']
         ];
-        self::addChatRecord($chat, $userLoginInfo[0]);
+        self::addChatRecord($chat, $uid);
         return ;
     }
 
@@ -169,8 +170,9 @@ class Events{
 
     //切换客服
     public static function eventSwitchStaff($msgData, $userLoginInfo){
+        $uid = $userLoginInfo[0];
         //check switch times
-        $user = self::$db->select('uid,switch_times,switch_staffs')->from('users')->where('uid= :uid')->bindValues(['uid'=>$userLoginInfo[0]])->query()[0];
+        $user = self::$db->select('uid,switch_times,switch_staffs')->from('users')->where('uid= :uid')->bindValues(['uid'=>$uid])->query()[0];
         if ($user['switch_times'] >= 3) {
             Gateway::sendToClient($userLoginInfo['client_id'], json_encode([
                 'type' => 'switchStaff',
@@ -195,16 +197,16 @@ class Events{
         //apply staff
         if (!empty($staffId)) {
             $msgContent = [
-                'uid' => $userLoginInfo[0],
+                'uid' => $uid,
                 'staffType' => 1,
                 'staffId' => $staffId
             ];
             $staffResult = $sender->applyStaff($msgContent);
             if ($staffResult['code'] == 200) {
                 $strOutStaffIds = implode(',', $outStaffIds);
-                self::$db->query("UPDATE users SET switch_times=switch_times+1,switch_staffs={$strOutStaffIds} WHERE uid={$userLoginInfo[0]}");
+                self::$db->query("UPDATE users SET switch_times=switch_times+1,switch_staffs={$strOutStaffIds} WHERE uid={$uid}");
                 //get userInfo
-                $user = self::getUserInfo($userLoginInfo[0]);
+                $user = self::getUserInfo($uid);
                 $userInfo = [
                     'type' => 'userInfo',
                     'user' => $user,
