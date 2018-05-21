@@ -172,7 +172,7 @@ class Events{
     public static function eventSwitchStaff($msgData, $userLoginInfo){
         $uid = $userLoginInfo[0];
         //check switch times
-        $user = self::$db->select('uid,switch_times,switch_staffs')->from('users')->where('uid= :uid')->bindValues(['uid'=>$uid])->query()[0];
+        $user = self::$db->select('uid,switch_times,switch_staffs')->from('tbl_users')->where('uid= :uid')->bindValues(['uid'=>$uid])->query()[0];
         if ($user['switch_times'] >= 3) {
             Gateway::sendToClient($userLoginInfo['client_id'], json_encode([
                 'type' => 'switchStaff',
@@ -204,7 +204,7 @@ class Events{
             $staffResult = $sender->applyStaff($msgContent);
             if ($staffResult['code'] == 200) {
                 $strOutStaffIds = implode(',', $outStaffIds);
-                self::$db->query("UPDATE users SET switch_times=switch_times+1,switch_staffs={$strOutStaffIds} WHERE uid={$uid}");
+                self::$db->query("UPDATE tbl_users SET switch_times=switch_times+1,switch_staffs={$strOutStaffIds} WHERE uid={$uid}");
                 //get userInfo
                 $user = self::getUserInfo($uid);
                 $userInfo = [
@@ -226,7 +226,7 @@ class Events{
 
     //投诉客服
     public static function eventComplain($msgData, $userLoginInfo){
-        self::$db->insert('complain')->cols([
+        self::$db->insert('tbl_complain')->cols([
             'select_content' => $msgData['select_content'],
             'content' => $msgData['content'],
             'staff_id' => $msgData['staffId'],
@@ -240,6 +240,29 @@ class Events{
     public static function eventHeartbeat($msgData, $userLoginInfo){
         Gateway::sendToClient($userLoginInfo['client_id'], '{"msg":"hehe"}');
         return ;
+    }
+
+    public static function eventTest($msgData, $userLoginInfo){
+        $sender = new sender();
+        $msgContent = [
+            'uid' => $userLoginInfo[0],
+            'userinfo' => [
+                ['key' => 'real_name', 'value' => '小明'],
+                ['index' => 0, 'key' => 'question_1', 'label' => '问题一','value' => '自我提升'],
+                ['index' => 1, 'key' => 'question_2', 'label' => '问题二','value' => '大专'],
+                ['index' => 2, 'key' => 'question_3', 'label' => '问题三','value' => '不错'],
+                ['index' => 3, 'key' => 'question_4', 'label' => '问题四','value' => '已报自考本科班'],
+                ['index' => 4, 'key' => 'question_5', 'label' => '问题五','value' => '笨笨的我'],
+            ]
+        ];
+        $content = [
+            'uid' => $userLoginInfo[0],
+            'msgType' => 'TEXT',
+            'content' => '#系统消息#会话页来源#热门学校-深圳大学'
+        ];
+        $result = $sender->pushMsg($content);
+        $result = $sender->updateUserInfo($msgContent);
+        var_dump($result);
     }
 
     public static function getRecordByPage($uid, $page, $limit){
@@ -283,7 +306,7 @@ class Events{
     public static function getUserInfo($uid){
         //get user answer and question
         $answers = [];
-        $userAnswer = self::$db->query("select ua.uid,ua.question_id,ua.answer,q.content,q.option,q.sort from user_answer as ua, questions as q where q.status=1 and q.question_id=ua.question_id and ua.uid=".$uid." order by q.sort");
+        $userAnswer = self::$db->query("select ua.uid,ua.question_id,ua.answer,q.content,q.option,q.sort from tbl_user_answer as ua, tbl_questions as q where q.status=1 and q.question_id=ua.question_id and ua.uid=".$uid." order by q.sort");
         foreach ($userAnswer as $user) {
             $options = json_decode($user['option'], true);
             foreach ($options as $option) {
