@@ -110,8 +110,8 @@ class Events{
 
         //record user position
         self::$db->insert('tbl_user_position')->cols([
-            'uid' => $uid,
-            'position' => $msgContent['msg']['position'],
+            'uid' => intval($uid),
+            'position' => $msgData['msg']['position'],
             'create_at' => time()
         ])->query();
 
