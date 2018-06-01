@@ -91,7 +91,7 @@ class Events{
 
         //get userInfo
         $user = self::getUserInfo($uid);
-        
+
         //send userInfo to user(with chat record if there is)
         $userInfo = [
             'type' => 'userInfo',
@@ -107,12 +107,21 @@ class Events{
             'staffType' => 1
         ];
         $staffResult = $sender->applyStaff($msgContent);
+
+        //record user position
+        self::$db->insert('tbl_user_position')->cols([
+            'uid' => $uid,
+            'position' => $msgContent['msg']['position'],
+            'create_at' => time()
+        ])->query();
+
         if ($staffResult['code'] == 200) {
             Gateway::sendToClient($userLoginInfo['client_id'], json_encode([
                 'type' => 'notice',
                 'msg' => 'session_start',
                 'staffId' => $staffResult['staffId']
             ]));
+            self::sendPositionToStaff($msgData['msg']['position'], $uid);
             if (isset($staffResult['message'])) {
                 $chat = [
                             'isMe' => false,
@@ -213,6 +222,7 @@ class Events{
                     'record' => ''
                 ];
                 Gateway::sendToClient($userLoginInfo['client_id'], json_encode($userInfo));
+                $this->sendPositionToStaff($msgData['position'], $uid);
             }
         }else{
             Gateway::sendToClient($userLoginInfo['client_id'], json_encode([
@@ -242,27 +252,15 @@ class Events{
         return ;
     }
 
-    public static function eventTest($msgData, $userLoginInfo){
+    public static function sendPositionToStaff($position, $uid){
         $sender = new sender();
         $msgContent = [
-            'uid' => $userLoginInfo[0],
-            'userinfo' => [
-                ['key' => 'real_name', 'value' => '小明'],
-                ['index' => 0, 'key' => 'question_1', 'label' => '问题一','value' => '自我提升'],
-                ['index' => 1, 'key' => 'question_2', 'label' => '问题二','value' => '大专'],
-                ['index' => 2, 'key' => 'question_3', 'label' => '问题三','value' => '不错'],
-                ['index' => 3, 'key' => 'question_4', 'label' => '问题四','value' => '已报自考本科班'],
-                ['index' => 4, 'key' => 'question_5', 'label' => '问题五','value' => '笨笨的我'],
-            ]
-        ];
-        $content = [
-            'uid' => $userLoginInfo[0],
+            'uid' => $uid,
             'msgType' => 'TEXT',
-            'content' => '#系统消息#会话页来源#热门学校-深圳大学'
+            'content' => '#系统消息#会话页来源#'.$position
         ];
-        $result = $sender->pushMsg($content);
-        $result = $sender->updateUserInfo($msgContent);
-        var_dump($result);
+        $sender->pushMsg($msgContent);
+        return ;
     }
 
     public static function getRecordByPage($uid, $page, $limit){
